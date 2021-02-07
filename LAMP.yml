@@ -1,0 +1,156 @@
+-
+        name: 'deploy simple web app with LAMP stack'
+        hosts: all_nodes
+        vars:
+                hostname:
+                        mysql: mysql
+                        web: web
+        tasks:
+                - name: 'install firewalld on redhat based systems'
+                  yum: 
+                    name: firewalld
+                    state: present
+                  when: ansible_facts['os_family']=="RedHat"
+
+                - name: 'install firewalld on Debian based Systems'
+                  apt: 
+                    name: firewalld
+                    state: present
+                  when: ansible_facts['os_family']=="Debian"
+                
+                - name: 'Starting and Enabling Firewalld service'
+                  service:
+                        name: firewalld
+                        enabled: yes
+                        state: started
+                        
+                - name: 'permit traffic for 3306/tcp port'
+                  ansible.posix.firewalld:
+                    port: 3306/tcp
+                    permanent: yes
+                    immediate: yes
+                    state: enabled
+                  when: inventory_hostname in groups[hostname.mysql]
+
+                - name: 'permit traffic for port 80/tcp'
+                  ansible.posix.firewalld:
+                    port: 80/tcp
+                    permanent: yes
+                    immediate: yes
+                    state: enabled
+                  when: inventory_hostname in groups['web']
+
+                - name: 'Installing MariaDB on Redhat based systems'
+                  yum: 
+                    name: '{{ item }}'
+                    state: present
+                  when: ansible_facts['os_family']=="RedHat" and inventory_hostname in groups[hostname.web]
+                  loop:
+                          - mariadb-server
+                          - mariadb
+
+                - name: 'Installing MariaDB on Debian based systems'
+                  apt: 
+                    name: mariadb-server
+                    state: present
+                  when: ansible_facts['os_family']=="Debian" and inventory_hostname in groups[hostname.web]
+ 
+                - name: 'Installing pymysql using pip'
+                  become: true
+                  pip:
+                        name: pymysql
+                        state: present
+                  when: inventory_hostname in groups[hostname.mysql]
+
+                - name: 'Starting and Enabling MariaDB service'
+                  service:
+                        name: mariadb
+                        enabled: yes
+                        state: started
+                  when: inventory_hostname in groups[hostname.mysql]
+
+                - name: 'Create a new database with name ecomdb'
+                  community.mysql.mysql_db:
+                    name: ecomdb
+                    state: present
+                  when: inventory_hostname in groups[hostname.mysql]
+
+                - name: 'Create a new user with all grant priv for ecomdb database'
+                  community.mysql.mysql_user:
+                          name: ecomuser
+                          password: ecompassword
+                          host: 192.168.1.127
+                          state: present
+                          priv:
+                                   '*.*': 'ALL,GRANT'
+                  when: inventory_hostname in groups[hostname.mysql]
+
+                - name: 'Copy sql file the mysql host'
+                  copy:
+                    src: ./db-load-script.sql
+                    dest: /tmp/db-load-script.sql
+                  when: inventory_hostname in groups[hostname.mysql]
+                
+                - name: 'Run sql script'
+                  shell: mysql < /tmp/db-load-script.sql
+                  when: inventory_hostname in groups[hostname.mysql]
+
+                - name: 'Install httpd, php, php-mysql'
+                  yum:
+                          name: "{{ item }}"
+                          state: present
+                  loop:
+                          - httpd
+                          - php
+                          - php-mysqlnd
+                  when: ansible_facts['os_family']=="RedHat" and inventory_hostname in groups[hostname.mysql]
+
+                - name: 'Install httpd, php, php-mysql'
+                  apt: 
+                    name: "{{ item }}"
+                    state: present
+                  loop:
+                          - httpd
+                          - php
+                            #- php-mysql
+                  when: ansible_facts['os_family']=="Debian" and inventory_hostname in groups[hostname.web]
+
+                - name: 'replace index.html to index.php'
+                  lineinfile:
+                          path: /etc/httpd/conf/httpd.conf
+                          regex: 'index\.html'
+                          line: DirectoryIndex index.php
+                  when: inventory_hostname in groups[hostname.web]
+                
+                - name: 'Restart service httpd'
+                  service:
+                          name: httpd
+                          state: restarted
+                          enabled: yes
+                  when: inventory_hostname in groups[hostname.web]
+                
+                - name: 'Install git'
+                  yum:
+                          name: git
+                          state: present
+                  when: ansible_facts['os_family']=="RedHat"
+
+                - name: 'install git'
+                  apt: 
+                    name: git
+                    state: present
+                  when: ansible_facts['os_family']=="Debian"
+
+                - name: 'Download the code'
+                  git:
+                          repo: 'https://github.com/kodekloudhub/learning-app-ecommerce.git'
+                          dest: /var/www/html/
+                  when: inventory_hostname in groups[hostname.web]
+
+                - name: 'Update index.php file to connect to the right database server'
+                  replace:
+                         path: /var/www/html/index.php
+                         regexp: '172\.20\.1\.101'
+                         replace: 192.168.1.130
+                  when: inventory_hostname in groups[hostname.web]
+

@@ -1,0 +1,12 @@
+-
+        name: 'Setup yum repos'
+        hosts: test1
+        tasks:
+                - name: 'Setup epel repo'
+                  yum_repository:
+                          name: epel
+                          description: Epel yum repo
+                          baseurl: https://download.fedoraproject.org/pub/epel/$releasever/$basearch/
+                          enabled: yes
+                          gpgcheck: no
+

@@ -1,0 +1,20 @@
+-
+        name: 'Simple Network Configuration using nmcli'
+        hosts: localhost
+        tasks:
+
+                - name: 'changing ip address'
+                  community.general.nmcli:
+                          conn_name: enp1s0
+                          ifname: enp1s0
+                          type: ethernet
+                          ip4: 192.168.1.152/24
+                          gw4: 192.168.1.1
+                          dns4:
+                                  - 8.8.8.8
+                                  - 8.8.4.4
+                          state: present
+
+
+                - name: 'Rebooting the machine to update the ip address'
+                  reboot:
