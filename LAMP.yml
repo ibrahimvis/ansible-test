@@ -44,7 +44,7 @@
                   yum: 
                     name: '{{ item }}'
                     state: present
-                  when: ansible_facts['os_family']=="RedHat" and inventory_hostname in groups[hostname.web]
+                  when: ansible_facts['os_family']=="RedHat" and inventory_hostname in groups[hostname.mysql]
                   loop:
                           - mariadb-server
                           - mariadb
@@ -53,7 +53,7 @@
                   apt: 
                     name: mariadb-server
                     state: present
-                  when: ansible_facts['os_family']=="Debian" and inventory_hostname in groups[hostname.web]
+                  when: ansible_facts['os_family']=="Debian" and inventory_hostname in groups[hostname.mysql]
  
                 - name: 'Installing pymysql using pip'
                   become: true
@@ -103,7 +103,7 @@
                           - httpd
                           - php
                           - php-mysqlnd
-                  when: ansible_facts['os_family']=="RedHat" and inventory_hostname in groups[hostname.mysql]
+                  when: ansible_facts['os_family']=="RedHat" and inventory_hostname in groups[hostname.web]
 
                 - name: 'Install httpd, php, php-mysql'
                   apt: 
